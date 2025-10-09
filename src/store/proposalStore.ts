@@ -12,8 +12,10 @@ interface ProposalState {
   startDate: string;
   endDate: string;
   companyInfo: { name: string; logoUrl: string; contact: string };
-  sections: { id: number; title: string; contentHtml: string; image_urls: string[]; order: number; image_placement: string | null }[];
+  sections: { id: number; title: string; contentHtml: string; image_urls: string[]; order: number; image_placement: string | null; mermaid_chart: string | null; layout: string | null }[];
+  chartTheme: 'default' | 'neutral' | 'dark' | 'forest';
   setField: (field: keyof ProposalState, value: any) => void;
+  setChartTheme: (theme: 'default' | 'neutral' | 'dark' | 'forest') => void;
   setSections: (sections: any[]) => void;
   updateSectionContent: (id: number, content: string) => void;
   reorderSections: (sections: any[]) => void;
@@ -21,6 +23,8 @@ interface ProposalState {
   deleteSection: (sectionId: number) => void;
   removeImageFromSection: (sectionId: number, imageUrl: string) => void;
   updateSectionImagePlacement: (sectionId: number, placement: string) => void;
+  updateSectionMermaidChart: (sectionId: number, chart: string) => void;
+  updateSectionLayout: (sectionId: number, layout: string) => void;
 }
 
 export const useProposalStore = create<ProposalState>()(
@@ -35,7 +39,9 @@ export const useProposalStore = create<ProposalState>()(
       endDate: '2025-03-31',
       companyInfo: { name: 'AI Solutions Inc.', logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/1200px-Google_2015_logo.svg.png', contact: 'info@aisolutions.com' },
       sections: [],
+      chartTheme: 'default',
       setField: (field, value) => set({ [field]: value }),
+      setChartTheme: (theme) => set({ chartTheme: theme }),
       setSections: (sections) => set({ sections }),
       updateSectionContent: (id, content) =>
         set((state) => ({
@@ -62,6 +68,18 @@ export const useProposalStore = create<ProposalState>()(
         set((state) => ({
           sections: state.sections.map((s) =>
             s.id === sectionId ? { ...s, image_placement: placement } : s
+          ),
+        })),
+      updateSectionMermaidChart: (sectionId, chart) =>
+        set((state) => ({
+          sections: state.sections.map((s) =>
+            s.id === sectionId ? { ...s, mermaid_chart: chart } : s
+          ),
+        })),
+      updateSectionLayout: (sectionId, layout) =>
+        set((state) => ({
+          sections: state.sections.map((s) =>
+            s.id === sectionId ? { ...s, layout: layout } : s
           ),
         })),
     }),

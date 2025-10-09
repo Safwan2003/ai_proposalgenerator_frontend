@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation'; // Import useRouter
 import { useProposalStore } from '@/store/proposalStore';
-import { createProposal, generateProposalDraft, aiEnhanceSection, deleteSection, addNewSection, updateSectionApi, getProposal, applyDesign, exportProposal, addImage } from '@/lib/api';
+import { createProposal, generateProposalDraft, aiEnhanceSection, deleteSection, addNewSection, updateSectionApi, getProposal, applyDesign, exportProposal, addImage, generateChart, generateChartForSection } from '@/lib/api';
 import SectionList from './SectionList';
 import AIDialog from '../ui/AIDialog';
 import ImagePickerModal from '../ui/ImagePickerModal';
@@ -12,6 +12,7 @@ import VersionHistoryModal from '../ui/VersionHistoryModal';
 import GenerateContentModal from '../ui/GenerateContentModal';
 import ManageSectionsModal from '../ui/ManageSectionsModal';
 import ApplyDesignModal from '../ui/ApplyDesignModal'; // Import the new modal
+import ChartWizardModal from '../ui/ChartWizardModal';
 
 
 export default function ProposalEditorPage() {
@@ -31,7 +32,12 @@ export default function ProposalEditorPage() {
     addImageToSection,
     updateSectionContent,
     removeImageFromSection,
+    updateSectionMermaidChart,
+    chartTheme,
+    setChartTheme,
   } = useProposalStore();
+
+  const [selectedSectionForChart, setSelectedSectionForChart] = useState<number | null>(null);
 
   const [proposalId, setProposalId] = useState<number | null>(null);
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
@@ -43,6 +49,8 @@ export default function ProposalEditorPage() {
   const [selectedSectionForContentGeneration, setSelectedSectionForContentGeneration] = useState<number | null>(null);
   const [manageSectionsModalOpen, setManageSectionsModalOpen] = useState(false);
   const [applyDesignModalOpen, setApplyDesignModalOpen] = useState(false); // State for new modal
+  const [chartWizardOpen, setChartWizardOpen] = useState(false);
+  const [suggestedChart, setSuggestedChart] = useState<string | null>(null);
 
   const [selectedSectionId, setSelectedSectionId] = useState<number | null>(null);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -98,8 +106,53 @@ export default function ProposalEditorPage() {
       setManageSectionsModalOpen(true);
 
     } catch (error: any) {
-      console.error('Error generating proposal:', error.response ? error.response.data : error.message);
-      setErrors({ ...errors, form: 'Error generating proposal. Please try again.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGenerateChart = async (description: string, chartType: 'flowchart' | 'gantt') => {
+    if (!proposalId) return;
+    setLoading(true);
+    try {
+      const updatedProposal = await generateChart(proposalId, description, chartType);
+      setSections(updatedProposal.sections);
+      setChartWizardOpen(false);
+    } catch (error: any) {
+      console.error('Error generating chart:', error.response ? error.response.data : error.message);
+      setErrors({ ...errors, form: 'Error generating chart. Please try again.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openChartWizardForSection = (sectionId: number, suggestedChartType?: string) => {
+    setSelectedSectionForChart(sectionId);
+    if (suggestedChartType) {
+      setSuggestedChart(suggestedChartType);
+    }
+    setChartWizardOpen(true);
+  };
+
+  const handleChartWizardGenerate = async (description: string, chartType: 'flowchart' | 'gantt') => {
+    if (!proposalId) return;
+
+    setLoading(true);
+    try {
+      if (selectedSectionForChart) {
+        // Add chart to existing section
+        const updatedSection = await generateChartForSection(proposalId, selectedSectionForChart, description, chartType);
+        updateSectionMermaidChart(selectedSectionForChart, updatedSection.mermaid_chart || '');
+      } else {
+        // Create new chart section
+        const updatedProposal = await generateChart(proposalId, description, chartType);
+        setSections(updatedProposal.sections);
+      }
+      setChartWizardOpen(false);
+      setSelectedSectionForChart(null);
+    } catch (error: any) {
+      console.error('Error in chart wizard:', error.response ? error.response.data : error.message);
+      setErrors({ ...errors, form: 'Error in chart wizard. Please try again.' });
     } finally {
       setLoading(false);
     }
@@ -361,10 +414,27 @@ export default function ProposalEditorPage() {
             >
               Export Proposal
             </button>
+            <button
+              onClick={() => setChartWizardOpen(true)}
+              disabled={!proposalId || loading}
+              className="bg-teal-600 text-white px-8 py-3 rounded-md text-lg font-semibold hover:bg-teal-700 transition-colors shadow-md disabled:bg-gray-400"
+            >
+              Add Chart
+            </button>
+            <select
+              value={chartTheme}
+              onChange={(e) => setChartTheme(e.target.value as 'default' | 'neutral' | 'dark' | 'forest')}
+              className="bg-gray-600 text-white px-8 py-3 rounded-md text-lg font-semibold hover:bg-gray-700 transition-colors shadow-md disabled:bg-gray-400"
+            >
+              <option value="default">Default Theme</option>
+              <option value="neutral">Neutral Theme</option>
+              <option value="dark">Dark Theme</option>
+              <option value="forest">Forest Theme</option>
+            </select>
           </div>
           {errors.form && <p className="text-red-500 text-center mt-4">{errors.form}</p>}
   
-          {proposalId && <SectionList proposalId={proposalId} openAiDialog={openAiDialog} openImagePicker={openImagePicker} openVersionHistoryModal={openVersionHistoryModal} />}
+          {proposalId && <SectionList proposalId={proposalId} openAiDialog={openAiDialog} openImagePicker={openImagePicker} openVersionHistoryModal={openVersionHistoryModal} openChartWizardForSection={openChartWizardForSection} />}
   
           <AIDialog open={aiDialogOpen} onClose={() => setAiDialogOpen(false)} onApply={handleAiEnhance} />
           <ImagePickerModal open={imagePickerOpen} onClose={() => setImagePickerOpen(false)} onSelectImage={handleSelectImage} />
@@ -386,6 +456,16 @@ export default function ProposalEditorPage() {
             onClose={() => setApplyDesignModalOpen(false)}
             onApply={handleApplyDesign}
             proposalId={proposalId}
+          />
+          <ChartWizardModal
+            open={chartWizardOpen}
+            onClose={() => {
+              setChartWizardOpen(false);
+              setSelectedSectionForChart(null);
+            }}
+            onGenerate={handleChartWizardGenerate}
+            loading={loading}
+            suggestedChartType={suggestedChart}
           />
         </div>
       </div>

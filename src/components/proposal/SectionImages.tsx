@@ -4,6 +4,8 @@ import { useProposalStore } from '@/store/proposalStore';
 import { updateImagePlacement } from '@/lib/api';
 
 export default function SectionImages({ section, handleDeleteImage, proposalId }) {
+  console.log("SectionImages - image_urls:", section.image_urls);
+  console.log("SectionImages - image_urls:", section.image_urls);
   const { updateSectionImagePlacement } = useProposalStore();
 
   const handlePlacementChange = async (sectionId, placement) => {
@@ -38,8 +40,13 @@ export default function SectionImages({ section, handleDeleteImage, proposalId }
   return (
     <div className={`mt-4 grid grid-cols-2 gap-3`}>
       {(section.image_urls || []).map((image, index) => (
-        <div key={index} className={`relative w-full h-48 rounded-md overflow-hidden shadow-sm group ${getPlacementClass(section.image_placement)}`}>
-          <img src={image} alt={`section image ${index + 1}`} className="w-full h-full object-cover" />
+        <div key={index} className={`relative w-full rounded-md shadow-sm group ${getPlacementClass(section.image_placement)}`}>
+          <img 
+            src={image} 
+            alt={`section image ${index + 1}`} 
+            className="w-full h-auto object-contain border-2 border-red-500" 
+            onError={(e) => console.error('Image failed to load:', image, e)}
+          />
           <button
             onClick={() => handleDeleteImage(section.id, image)}
             className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 text-xs opacity-0 group-hover:opacity-100 transition-opacity"

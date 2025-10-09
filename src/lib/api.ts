@@ -81,7 +81,7 @@ export const addNewSection = async (
 export const updateSectionApi = async (
   proposalId: number,
   sectionId: number,
-  sectionData: { title?: string; contentHtml?: string }
+  sectionData: { title?: string; contentHtml?: string; mermaid_chart?: string; layout?: string }
 ) => {
   const { data } = await apiClient.patch(`/proposals/${proposalId}/sections/${sectionId}`, sectionData);
   return data;
@@ -123,10 +123,15 @@ export const applyDesign = async (proposalId: number, css: string) => {
  * Images
  * ------------------------------
  */
-export const searchImages = async (query: string, tags?: string) => {
+export const searchImages = async (query: string, provider: string) => {
   const { data } = await apiClient.get(`/images/search`, {
-    params: { q: query, tags },
+    params: { query: query, provider },
   });
+  return data;
+};
+
+export const getImageProviders = async () => {
+  const { data } = await apiClient.get(`/images/providers`);
   return data;
 };
 
@@ -168,6 +173,43 @@ export const getDesignSuggestions = async (proposalId: number): Promise<DesignSu
 export const getProposalPreviewHtml = async (proposalId: number): Promise<string> => {
   const { data } = await apiClient.get(`/proposals/${proposalId}/preview`, {
     responseType: 'text', // Ensure we get the HTML as a string
+  });
+  return data;
+};
+
+export const generateChart = async (proposalId: number, description: string, chartType: 'flowchart' | 'gantt' | 'sequence' | 'mindmap', sectionId?: number) => {
+  const { data } = await apiClient.post(`/proposals/${proposalId}/charts`, {
+    description,
+    chart_type: chartType,
+    section_id: sectionId,
+  });
+  return data;
+};
+
+export const suggestChartType = async (proposalId: number, sectionId: number) => {
+  const { data } = await apiClient.post(`/proposals/${proposalId}/sections/${sectionId}/suggest-chart`);
+  return data;
+};
+
+export const updateChart = async (proposalId: number, sectionId: number, prompt: string, current_chart_code: string) => {
+  const { data } = await apiClient.post(`/proposals/${proposalId}/sections/${sectionId}/update-chart`, {
+    prompt,
+    current_chart_code,
+  });
+  return data;
+};
+
+export const generateChartForSection = async (proposalId: number, sectionId: number, description: string, chartType: 'flowchart' | 'gantt') => {
+  const { data } = await apiClient.post(`/proposals/${proposalId}/sections/${sectionId}/generate-chart`, {
+    description,
+    chart_type: chartType,
+  });
+  return data;
+};
+
+export const generateChartFromContent = async (proposalId: number, sectionId: number, sectionContent: string) => {
+  const { data } = await apiClient.post(`/proposals/${proposalId}/sections/${sectionId}/generate-chart-from-content`, {
+    section_content: sectionContent,
   });
   return data;
 };

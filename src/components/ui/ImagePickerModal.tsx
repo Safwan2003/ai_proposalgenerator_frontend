@@ -1,17 +1,29 @@
 'use client';
 
-import { useState } from 'react';
-import { searchImages } from '@/lib/api';
+import { useState, useEffect } from 'react';
+import { searchImages, getImageProviders } from '@/lib/api';
 
 export default function ImagePickerModal({ open, onClose, onSelectImage }) {
   const [query, setQuery] = useState('');
   const [tags, setTags] = useState('');
   const [images, setImages] = useState([]);
+  const [providers, setProviders] = useState([]);
+  const [selectedProvider, setSelectedProvider] = useState('pixabay');
+
+  useEffect(() => {
+    if (open) {
+      const fetchProviders = async () => {
+        const availableProviders = await getImageProviders();
+        setProviders(availableProviders);
+      };
+      fetchProviders();
+    }
+  }, [open]);
 
   if (!open) return null;
 
   const handleSearch = async () => {
-    const results = await searchImages(query, tags);
+    const results = await searchImages(query, selectedProvider);
     setImages(results);
   };
 
@@ -26,6 +38,11 @@ export default function ImagePickerModal({ open, onClose, onSelectImage }) {
         <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">Select Image</h2>
         <div className="flex flex-col gap-3 mb-6">
           <div className="flex gap-3">
+            <select value={selectedProvider} onChange={(e) => setSelectedProvider(e.target.value)} className="p-2 border border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+              {providers.map(provider => (
+                <option key={provider} value={provider}>{provider}</option>
+              ))}
+            </select>
             <input
               type="text"
               placeholder="Search for images..."
@@ -37,13 +54,6 @@ export default function ImagePickerModal({ open, onClose, onSelectImage }) {
               Search
             </button>
           </div>
-          <input
-            type="text"
-            placeholder="Enter tags (comma-separated)..."
-            value={tags}
-            onChange={(e) => setTags(e.target.value)}
-            className="flex-grow p-2 border border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-          />
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 h-80 overflow-y-auto p-2 border border-gray-200 rounded-md bg-gray-50">
           {images.map((image, index) => (
