@@ -90,6 +90,7 @@ export default function SectionList({
         Proposal Sections
       </h2>
       <DndContext 
+        key={sections.map(s => s.id).join('-')} // Add key to reset context when sections change
         sensors={sensors} 
         collisionDetection={closestCenter} 
         onDragEnd={handleDragEnd}

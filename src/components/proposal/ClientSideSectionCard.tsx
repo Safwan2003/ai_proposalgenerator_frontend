@@ -96,11 +96,15 @@ export default function ClientSideSectionCard({ section, proposalId, openAiDialo
   }, []);
 
   useEffect(() => {
-    if (editor && !editor.isDestroyed && section.contentHtml !== editor.getHTML()) {
-      editor.commands.setContent(section.contentHtml, false);
-    }
-    if (section.mermaid_chart !== editableMermaidContent) {
-      setEditableMermaidContent(section.mermaid_chart || '');
+    try {
+      if (editor && !editor.isDestroyed && section.contentHtml !== editor.getHTML()) {
+        editor.commands.setContent(section.contentHtml, false);
+      }
+      if (section.mermaid_chart !== editableMermaidContent) {
+        setEditableMermaidContent(section.mermaid_chart || '');
+      }
+    } catch (e) {
+      console.error("Error updating section card editor:", e);
     }
   }, [section.contentHtml, section.mermaid_chart, editor]);
 
@@ -221,21 +225,19 @@ export default function ClientSideSectionCard({ section, proposalId, openAiDialo
 
       <SectionImages section={section} handleDeleteImage={handleDeleteImage} />
 
-      <div className="mt-4">
-        <label className="block text-sm font-medium">Image Placement</label>
-        <select
-          value={section.image_placement || 'inline-left'}
-          onChange={(e) => updateSectionImagePlacement(section.id, e.target.value)}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
-        >
-          <option value="inline-left">Inline Left</option>
-          <option value="inline-right">Inline Right</option>
-          <option value="full-width">Full Width</option>
-          <option value="two-column-left">Two Column Left</option>
-          <option value="two-column-right">Two Column Right</option>
-          <option value="three-column">Three Column</option>
-        </select>
-      </div>
+      {section.image_urls && section.image_urls.length > 0 && (
+        <div className="mt-4">
+          <label className="block text-sm font-medium">Image Placement</label>
+          <select
+            value={section.image_placement || 'full-width-top'}
+            onChange={(e) => updateSectionImagePlacement(section.id, e.target.value)}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
+          >
+            <option value="full-width-top">Full Width Top</option>
+            <option value="full-width-bottom">Full Width Bottom</option>
+          </select>
+        </div>
+      )}
 
       <div className="mt-5 flex flex-wrap justify-end gap-3">
         {!section.mermaid_chart && <button onClick={handleGenerateDiagram} className="px-4 py-2 text-sm bg-teal-500 text-white rounded-md">Add Diagram</button>}

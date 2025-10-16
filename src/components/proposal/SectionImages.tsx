@@ -5,7 +5,6 @@ import { updateImagePlacement } from '@/lib/api';
 
 export default function SectionImages({ section, handleDeleteImage, proposalId }) {
   console.log("SectionImages - image_urls:", section.image_urls);
-  console.log("SectionImages - image_urls:", section.image_urls);
   const { updateSectionImagePlacement } = useProposalStore();
 
   const handlePlacementChange = async (sectionId, placement) => {
@@ -44,7 +43,7 @@ export default function SectionImages({ section, handleDeleteImage, proposalId }
           <img 
             src={image} 
             alt={`section image ${index + 1}`} 
-            className="w-full h-auto object-contain border-2 border-red-500" 
+            className="w-full h-auto object-contain" 
             onError={(e) => console.error('Image failed to load:', image, e)}
           />
           <button
@@ -55,21 +54,7 @@ export default function SectionImages({ section, handleDeleteImage, proposalId }
           </button>
         </div>
       ))}
-      {section.image_urls && section.image_urls.length > 0 && (
-        <div className="col-span-full mt-2">
-          <label htmlFor={`placement-${section.id}`} className="block text-sm font-medium text-gray-700">Image Placement</label>
-          <select
-            id={`placement-${section.id}`}
-            value={section.image_placement || 'inline-left'}
-            onChange={(e) => handlePlacementChange(section.id, e.target.value)}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
-          >
-            <option value="full-width">Full Width</option>
-            <option value="inline-left">Inline Left</option>
-            <option value="inline-right">Inline Right</option>
-          </select>
-        </div>
-      )}
+
     </div>
   );
 }

@@ -11,6 +11,16 @@ const apiClient = axios.create({
 export interface DesignSuggestion {
   prompt: string;
   css: string;
+  metadata: {
+    primary_color: string;
+    secondary_color: string;
+    font: string;
+    tone: string;
+    layout_style: string;
+    header_style: string;
+    section_style: string;
+    visual_description: string;
+  };
 }
 
 /**
@@ -170,6 +180,11 @@ export const getDesignSuggestions = async (proposalId: number): Promise<DesignSu
   return data;
 };
 
+export const liveCustomizeDesign = async (proposalId: number, prompt: string): Promise<DesignSuggestion> => {
+  const { data } = await apiClient.post(`/proposals/${proposalId}/live-customize`, { prompt });
+  return data;
+};
+
 export const getProposalPreviewHtml = async (proposalId: number): Promise<string> => {
   const { data } = await apiClient.get(`/proposals/${proposalId}/preview`, {
     responseType: 'text', // Ensure we get the HTML as a string
@@ -203,13 +218,6 @@ export const generateChartForSection = async (proposalId: number, sectionId: num
   const { data } = await apiClient.post(`/proposals/${proposalId}/sections/${sectionId}/generate-chart`, {
     description,
     chart_type: chartType,
-  });
-  return data;
-};
-
-export const generateChartFromContent = async (proposalId: number, sectionId: number, sectionContent: string) => {
-  const { data } = await apiClient.post(`/proposals/${proposalId}/sections/${sectionId}/generate-chart-from-content`, {
-    section_content: sectionContent,
   });
   return data;
 };
