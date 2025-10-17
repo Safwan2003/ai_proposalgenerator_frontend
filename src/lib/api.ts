@@ -175,8 +175,8 @@ export const getProposal = async (proposalId: number) => {
   return data;
 };
 
-export const getDesignSuggestions = async (proposalId: number): Promise<DesignSuggestion[]> => {
-  const { data } = await apiClient.get(`/proposals/${proposalId}/design-suggestions`);
+export const getDesignSuggestions = async (proposalId: number, keywords: string = ''): Promise<DesignSuggestion[]> => {
+  const { data } = await apiClient.get(`/proposals/${proposalId}/design-suggestions`, { params: { keywords } });
   return data;
 };
 

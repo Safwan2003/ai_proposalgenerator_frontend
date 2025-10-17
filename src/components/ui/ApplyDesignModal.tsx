@@ -16,6 +16,7 @@ const ApplyDesignModal: React.FC<ApplyDesignModalProps> = ({ open, onClose, onAp
   const [selectedDesign, setSelectedDesign] = useState<DesignSuggestion | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [keywords, setKeywords] = useState('');
 
   useEffect(() => {
     if (open && proposalId) {
@@ -23,13 +24,13 @@ const ApplyDesignModal: React.FC<ApplyDesignModalProps> = ({ open, onClose, onAp
     }
   }, [open, proposalId]);
 
-  const fetchData = async () => {
+  const fetchData = async (userKeywords: string = '') => {
     if (!proposalId) return;
     setIsLoading(true);
     setError(null);
     try {
       const [suggestions, html] = await Promise.all([
-        getDesignSuggestions(proposalId),
+        getDesignSuggestions(proposalId, userKeywords),
         getProposalPreviewHtml(proposalId),
       ]);
 
@@ -68,33 +69,58 @@ const ApplyDesignModal: React.FC<ApplyDesignModalProps> = ({ open, onClose, onAp
 
   return (
     <div className="fixed inset-0 bg-gray-900 bg-opacity-75 z-50 flex justify-center items-center p-4">
-      <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-6xl transform transition-all scale-100 opacity-100">
-        <h2 className="text-2xl font-bold text-gray-800 mb-2 text-center">Apply AI Design</h2>
-        <p className="text-center text-gray-600 mb-6">Click on a design to select it, then click 'Apply Design'.</p>
+      <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-7xl h-[90vh] flex flex-col transform transition-all scale-100 opacity-100">
+        <div className="flex justify-between items-center mb-6">
+            <h2 className="text-3xl font-bold text-gray-800">Explore & Apply AI Designs</h2>
+            <div className="flex items-center gap-4">
+                <input type="text" value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder="e.g., dark mode, minimalist" className="px-4 py-2 border border-gray-300 rounded-md" />
+                <button onClick={() => fetchData(keywords)} disabled={isLoading} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 shadow-sm disabled:bg-gray-400">
+                    {isLoading ? 'Generating...' : 'Generate More'}
+                </button>
+            </div>
+        </div>
 
-        {isLoading ? (
-          <div className="flex justify-center items-center h-96">
-            <p>Loading design previews...</p>
-          </div>
-        ) : error ? (
-          <div className="flex justify-center items-center h-96 text-red-500">
-            <p>{error}</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-[60vh] overflow-y-auto p-4 bg-gray-50 rounded-lg">
-            {designSuggestions.map((suggestion, index) => (
-              <div key={index} onClick={() => setSelectedDesign(suggestion)} className={`cursor-pointer rounded-lg overflow-hidden border-4 ${selectedDesign?.prompt === suggestion.prompt ? 'border-indigo-600' : 'border-transparent'}`}>
-                <h3 className="p-3 bg-gray-100 text-gray-800 font-semibold text-center">{suggestion.prompt}</h3>
-                <iframe
-                  srcDoc={constructPreviewHtml(suggestion.css)}
-                  className="w-full h-96 bg-white"
-                  title={suggestion.prompt}
-                  sandbox="allow-same-origin"
-                />
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="flex-grow grid grid-cols-12 gap-8 overflow-hidden">
+            {/* Left Column: Design List */}
+            <div className="col-span-4 overflow-y-auto pr-4">
+                {isLoading && !designSuggestions.length ? (
+                    <p>Loading design suggestions...</p>
+                ) : error ? (
+                    <p className="text-red-500">{error}</p>
+                ) : (
+                    <div className="space-y-4">
+                        {designSuggestions.map((suggestion, index) => (
+                            <div key={index} onClick={() => setSelectedDesign(suggestion)} className={`cursor-pointer p-4 rounded-lg border-2 ${selectedDesign?.prompt === suggestion.prompt ? 'border-indigo-600 bg-indigo-50' : 'border-gray-200 bg-white'}`}>
+                                <h3 className="font-bold text-lg text-gray-800">{suggestion.prompt}</h3>
+                                <p className="text-sm text-gray-600">{suggestion.metadata.visual_description}</p>
+                                <div className="flex items-center flex-wrap gap-2 mt-2">
+                                    <span className="w-4 h-4 rounded-full border border-gray-300" style={{ backgroundColor: suggestion.metadata.primary_color }}></span>
+                                    <span className="w-4 h-4 rounded-full border border-gray-300" style={{ backgroundColor: suggestion.metadata.secondary_color }}></span>
+                                    <span className="text-xs text-gray-500 px-2 py-1 bg-gray-100 rounded-full">{suggestion.metadata.font}</span>
+                                    <span className="text-xs text-gray-500 px-2 py-1 bg-gray-100 rounded-full">{suggestion.metadata.tone}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Right Column: Preview */}
+            <div className="col-span-8 bg-gray-100 rounded-lg overflow-hidden">
+                {selectedDesign ? (
+                    <iframe
+                        srcDoc={constructPreviewHtml(selectedDesign.css)}
+                        className="w-full h-full bg-white"
+                        title={selectedDesign.prompt}
+                        sandbox="allow-same-origin"
+                    />
+                ) : (
+                    <div className="flex justify-center items-center h-full">
+                        <p>Select a design to preview</p>
+                    </div>
+                )}
+            </div>
+        </div>
 
         <div className="mt-8 flex justify-end gap-3">
           <button onClick={onClose} className="px-5 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors font-medium">
