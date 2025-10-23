@@ -6,11 +6,13 @@ interface ChartWizardModalProps {
   open: boolean;
   onClose: () => void;
   onGenerate: (description: string, chartType: 'flowchart' | 'gantt' | 'sequence' | 'mindmap' | 'pie' | 'user_journey' | 'c4') => void;
+  onFix: (mermaidCode: string) => void;
   loading: boolean;
   suggestedChartType?: string | null;
+  currentMermaidCode?: string;
 }
 
-export default function ChartWizardModal({ open, onClose, onGenerate, loading, suggestedChartType }: ChartWizardModalProps) {
+export default function ChartWizardModal({ open, onClose, onGenerate, onFix, loading, suggestedChartType, currentMermaidCode }: ChartWizardModalProps) {
   const [description, setDescription] = useState('');
   const [chartType, setChartType] = useState<'flowchart' | 'gantt' | 'sequence' | 'mindmap' | 'pie' | 'user_journey' | 'c4'>('flowchart');
 
@@ -28,14 +30,20 @@ export default function ChartWizardModal({ open, onClose, onGenerate, loading, s
     }
   };
 
+  const handleFix = () => {
+    if (currentMermaidCode) {
+      onFix(currentMermaidCode);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
       <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-lg">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">Generate a New Chart</h2>
+        <h2 className="text-2xl font-bold text-gray-800 mb-6">Generate or Fix a Chart</h2>
         <div className="space-y-4">
           <div>
             <label htmlFor="chart-description" className="block text-sm font-medium text-gray-700 mb-1">
-              Describe the process or data:
+              Describe the process or data (for new charts):
             </label>
             <textarea
               id="chart-description"
@@ -48,7 +56,7 @@ export default function ChartWizardModal({ open, onClose, onGenerate, loading, s
           </div>
           <div>
             <label htmlFor="chart-type" className="block text-sm font-medium text-gray-700 mb-1">
-              Chart Type:
+              Chart Type (for new charts):
             </label>
             <select
               id="chart-type"
@@ -74,6 +82,15 @@ export default function ChartWizardModal({ open, onClose, onGenerate, loading, s
           >
             Cancel
           </button>
+          {currentMermaidCode && (
+            <button
+              onClick={handleFix}
+              className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 shadow-sm disabled:bg-gray-400"
+              disabled={loading}
+            >
+              {loading ? 'Fixing...' : 'Fix Chart'}
+            </button>
+          )}
           <button
             onClick={handleGenerate}
             className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 shadow-sm disabled:bg-gray-400"

@@ -3,6 +3,15 @@
 import React, { useState, useEffect } from 'react';
 import { getDesignSuggestions, getProposalPreviewHtml, DesignSuggestion } from '@/lib/api';
 
+interface ApiErrorResponse {
+  response?: {
+    data?: {
+      detail?: string;
+    };
+  };
+  message?: string;
+}
+
 interface ApplyDesignModalProps {
   open: boolean;
   onClose: () => void;
@@ -40,9 +49,19 @@ const ApplyDesignModal: React.FC<ApplyDesignModalProps> = ({ open, onClose, onAp
       if (suggestions.length > 0) {
         setSelectedDesign(suggestions[0]);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching design data:', err);
-      const errorMessage = err.response?.data?.detail || err.message || 'Failed to fetch design data.';
+      let errorMessage = 'Failed to fetch design data.';
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      } else if (typeof err === 'object' && err !== null) {
+        const apiError = err as ApiErrorResponse;
+        if (apiError.response?.data?.detail) {
+          errorMessage = apiError.response.data.detail;
+        } else if (apiError.message) {
+          errorMessage = apiError.message;
+        }
+      }
       setError(errorMessage);
     } finally {
       setIsLoading(false);

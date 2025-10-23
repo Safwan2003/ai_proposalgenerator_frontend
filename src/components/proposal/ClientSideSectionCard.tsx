@@ -109,17 +109,26 @@ export default function ClientSideSectionCard({ section, proposalId, openAiDialo
   }, [section.contentHtml, section.mermaid_chart, editor]);
 
   const toggleEdit = async () => {
-    if (!editor) return;
+    console.log("toggleEdit called");
+    if (!editor) {
+      console.log("Editor not initialized");
+      return;
+    }
     const isEditable = !editor.isEditable;
+    console.log("Current editor editable state:", editor.isEditable, "New state:", isEditable);
     editor.setEditable(isEditable);
     if (!isEditable) { // Just exited edit mode
+      console.log("Exited edit mode, saving content...");
       const newHtml = editor.getHTML();
       updateSectionContent(section.id, newHtml);
       updateSectionMermaidChart(section.id, editableMermaidContent);
       if (proposalId) {
+        console.log("Calling updateSectionApi...");
         await updateSectionApi(proposalId, section.id, { contentHtml: newHtml, mermaid_chart: editableMermaidContent });
+        console.log("updateSectionApi called.");
       }
     }
+    console.log("toggleEdit finished.");
   };
 
   const handleDeleteImage = async (sectionId: number, imageUrl: string) => {
@@ -224,6 +233,25 @@ export default function ClientSideSectionCard({ section, proposalId, openAiDialo
       )}
 
       <SectionImages section={section} handleDeleteImage={handleDeleteImage} />
+
+      {section.title.toLowerCase().includes('technology stack') && (
+        <div className="mt-4">
+          <h4 className="text-lg font-semibold text-gray-700 mb-2">Technologies Used:</h4>
+          <div className="flex flex-wrap gap-4 items-center">
+            {section.tech_logos_list && Array.isArray(section.tech_logos_list) && section.tech_logos_list.map((tech, index) => (
+              <div key={index} className="flex items-center space-x-2 p-2 border border-gray-200 rounded-md bg-white shadow-sm">
+                {tech.logo_url ? (
+                  <img src={tech.logo_url} alt={tech.name} className="h-8 w-8 object-contain" />
+                ) : (
+                  <div className="h-8 w-8 flex items-center justify-center bg-gray-200 text-gray-500 rounded-md text-xs font-semibold">{tech.name.charAt(0)}</div>
+                )}
+                <span className="text-sm font-medium text-gray-800">{tech.name}</span>
+              </div>
+            ))}
+            <button onClick={() => openImagePicker(section.id)} className="px-4 py-2 text-sm bg-gray-100 rounded-md">Add Tech Logo</button>
+          </div>
+        </div>
+      )}
 
       {section.image_urls && section.image_urls.length > 0 && (
         <div className="mt-4">

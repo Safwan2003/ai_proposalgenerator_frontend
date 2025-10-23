@@ -11,8 +11,15 @@ interface VersionHistoryModalProps {
   onRevert: () => void;
 }
 
+interface Version {
+  id: number;
+  created_at: string;
+  contentHtml: string;
+  // Add other properties if they exist and are used
+}
+
 export default function VersionHistoryModal({ open, onClose, sectionId, onRevert }: VersionHistoryModalProps) {
-  const [versions, setVersions] = useState<any[]>([]);
+  const [versions, setVersions] = useState<Version[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

@@ -1,6 +1,7 @@
 
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
+import { Section } from '@/types/proposal';
 
 // Define the state shape
 interface ProposalState {
@@ -13,18 +14,23 @@ interface ProposalState {
   endDate: string;
   companyInfo: { name: string; logoUrl: string; contact: string };
   sections: { id: number; title: string; contentHtml: string; image_urls: string[]; order: number; image_placement: string | null; mermaid_chart: string | null; layout: string | null }[];
+  tech_stack: { name: string; logo_url: string }[];
   chartTheme: 'default' | 'neutral' | 'dark' | 'forest';
-  setField: (field: keyof ProposalState, value: any) => void;
+
+  setField: <K extends keyof ProposalState>(field: K, value: ProposalState[K]) => void;
   setChartTheme: (theme: 'default' | 'neutral' | 'dark' | 'forest') => void;
-  setSections: (sections: any[]) => void;
+  setSections: (sections: Section[]) => void;
+
+  updateSection: (section: Section) => void;
   updateSectionContent: (id: number, content: string) => void;
-  reorderSections: (sections: any[]) => void;
+  reorderSections: (sections: Section[]) => void;
   addImageToSection: (sectionId: number, imageUrl: string) => void;
   deleteSection: (sectionId: number) => void;
   removeImageFromSection: (sectionId: number, imageUrl: string) => void;
   updateSectionImagePlacement: (sectionId: number, placement: string) => void;
   updateSectionMermaidChart: (sectionId: number, chart: string) => void;
   updateSectionLayout: (sectionId: number, layout: string) => void;
+  addTechLogoToSection: (sectionId: number, techLogo: { name: string; logo_url: string }) => void;
 }
 
 export const useProposalStore = create<ProposalState>()(
@@ -39,10 +45,17 @@ export const useProposalStore = create<ProposalState>()(
       endDate: '2025-03-31',
       companyInfo: { name: 'AI Solutions Inc.', logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/1200px-Google_2015_logo.svg.png', contact: 'info@aisolutions.com' },
       sections: [],
+      tech_stack: [],
       chartTheme: 'default',
+
       setField: (field, value) => set({ [field]: value }),
       setChartTheme: (theme) => set({ chartTheme: theme }),
       setSections: (sections) => set({ sections }),
+      setTechStack: (tech_stack) => set({ tech_stack }),
+      updateSection: (section) =>
+        set((state) => ({
+          sections: state.sections.map((s) => (s.id === section.id ? section : s)),
+        })),
       updateSectionContent: (id, content) =>
         set((state) => ({
           sections: state.sections.map((s) => (s.id === id ? { ...s, contentHtml: content } : s)),
@@ -81,6 +94,16 @@ export const useProposalStore = create<ProposalState>()(
           sections: state.sections.map((s) =>
             s.id === sectionId ? { ...s, layout: layout } : s
           ),
+        })),
+      addTechLogoToSection: (sectionId, techLogo) =>
+        set((state) => ({
+          sections: state.sections.map((s) => {
+            if (s.id === sectionId) {
+              const newTechLogos = Array.isArray(techLogo) ? techLogo : [techLogo];
+              return { ...s, tech_logos: [...s.tech_logos, ...newTechLogos] };
+            }
+            return s;
+          }),
         })),
     }),
     { name: 'ProposalStore' }

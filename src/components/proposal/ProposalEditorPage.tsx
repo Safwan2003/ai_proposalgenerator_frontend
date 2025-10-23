@@ -1,20 +1,40 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useProposalStore } from '@/store/proposalStore';
-import { createProposal, generateProposalDraft, aiEnhanceSection, addImage, generateChartForSection } from '@/lib/api';
+import { createProposal, generateProposalDraft, aiEnhanceSection, addImage, generateChartForSection, getProposal } from '@/lib/api';
 import SectionList from './SectionList';
 import AIDialog from '../ui/AIDialog';
 import ImagePickerModal from '../ui/ImagePickerModal';
 import VersionHistoryModal from '../ui/VersionHistoryModal';
 import ChartWizardModal from '../ui/ChartWizardModal';
+import ClassicTemplate from '@/templates/ClassicTemplate';
+import ModernTemplate from '@/templates/ModernTemplate';
+import ElegantCenteredTemplate from '@/templates/ElegantCenteredTemplate';
+import Toast from '../ui/Toast';
+
+function isErrorWithMessage(error: unknown): error is Error {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof (error as { message: string }).message === 'string'
+  );
+}
+
+const templates = {
+  ClassicTemplate,
+  ModernTemplate,
+  ElegantCenteredTemplate,
+};
 
 export default function ProposalEditorPage() {
   const router = useRouter();
   const { 
     clientName, rfpText, totalAmount, paymentType, numDeliverables, startDate, endDate, companyInfo, sections, 
-    setField, setSections, addImageToSection, updateSectionContent, removeImageFromSection, updateSectionMermaidChart 
+    setField, setSections, addImageToSection, updateSectionContent, removeImageFromSection, updateSectionMermaidChart, 
+    updateSection, setTechStack, addTechLogoToSection
   } = useProposalStore();
 
   const [proposalId, setProposalId] = useState<number | null>(null);
@@ -27,6 +47,35 @@ export default function ProposalEditorPage() {
   const [selectedSectionForChart, setSelectedSectionForChart] = useState<number | null>(null);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [loading, setLoading] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState('ClassicTemplate');
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    if (proposalId) {
+      setLoading(true);
+      getProposal(proposalId)
+        .then((data) => {
+          setField('clientName', data.clientName);
+          setField('rfpText', data.rfpText);
+          setField('totalAmount', data.totalAmount);
+          setField('paymentType', data.paymentType);
+          setField('numDeliverables', data.numDeliverables);
+          setField('startDate', data.startDate);
+          setField('endDate', data.endDate);
+          setField('companyInfo', { name: data.companyName, logoUrl: data.companyLogoUrl, contact: data.companyContact });
+          setSections(data.sections);
+          setTechStack(data.tech_stack);
+
+        })
+        .catch((err) => {
+          console.error("Failed to fetch proposal", err);
+          setErrors({ form: "Failed to load proposal data." });
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    }
+  }, [proposalId, setField, setSections, setTechStack]);
 
   const validateFields = () => {
     const newErrors: { [key: string]: string } = {};
@@ -48,12 +97,20 @@ export default function ProposalEditorPage() {
 
       const updatedProposal = await generateProposalDraft(newProposalId);
       setSections(updatedProposal.sections);
+      setTechStack(updatedProposal.tech_stack);
 
-      // Notify user and enable preview button
-      alert('Proposal generated successfully! You can now preview it.');
 
-    } catch (error: any) {
-      setErrors({ ...errors, form: `An error occurred: ${error.message}` });
+      setToast({ message: 'Proposal generated successfully!', type: 'success' });
+
+    } catch (error: unknown) {
+      let errorMessage = 'An unknown error occurred.';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (isErrorWithMessage(error)) {
+        errorMessage = (error as Error).message;
+      }
+      setErrors({ ...errors, form: `An error occurred: ${errorMessage}` });
+      setToast({ message: `An error occurred: ${errorMessage}`, type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -64,24 +121,87 @@ export default function ProposalEditorPage() {
     setLoading(true);
     try {
       const enhancedSection = await aiEnhanceSection(proposalId, selectedSectionId, action, tone);
-      updateSectionContent(selectedSectionId, enhancedSection.contentHtml);
-    } catch (error: any) {
-      console.error('Error enhancing section:', error.response ? error.response.data : error.message);
+      updateSection(enhancedSection);
+      setToast({ message: 'Section enhanced successfully!', type: 'success' });
+    } catch (error: unknown) {
+      let errorMessage = 'Error enhancing section. Please try again.';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (isErrorWithMessage(error)) {
+        errorMessage = (error as Error).message;
+      } else if (typeof error === 'object' && error !== null && 'response' in error && typeof (error as any).response === 'object' && (error as any).response !== null && 'data' in (error as any).response) {
+        errorMessage = (error as any).response.data.detail || errorMessage;
+      }
+      console.error('Error enhancing section:', error);
+      setToast({ message: errorMessage, type: 'error' });
     } finally {
       setLoading(false);
       setAiDialogOpen(false);
     }
   };
 
-  const handleSelectImage = async (imageUrl: string) => {
+  const handleSelectImage = async (item: { type: string; data: any }) => {
     if (selectedSectionId && proposalId) {
-      addImageToSection(selectedSectionId, imageUrl);
-      try {
-        await addImage(proposalId, selectedSectionId, imageUrl);
-      } catch (error) {
-        removeImageFromSection(selectedSectionId, imageUrl);
-        alert('Error adding image. Please try again.');
+      if (item.type === 'image') {
+        addImageToSection(selectedSectionId, item.data.url);
+        try {
+          await addImage(proposalId, selectedSectionId, item.data.url);
+          setToast({ message: 'Image added successfully!', type: 'success' });
+        } catch (error: unknown) {
+          let errorMessage = 'Error adding image. Please try again.';
+          if (error instanceof Error) {
+            errorMessage = error.message;
+          } else if (isErrorWithMessage(error)) {
+            errorMessage = (error as Error).message;
+          }
+          removeImageFromSection(selectedSectionId, item.data.url);
+          setToast({ message: errorMessage, type: 'error' });
+        }
+      } else if (item.type === 'tech_logo') {
+        addTechLogoToSection(selectedSectionId, item.data);
       }
+    }
+  };
+
+  const handleGenerateChart = async (description: string, chartType: any) => {
+    if (!selectedSectionForChart || !proposalId) return;
+    setLoading(true);
+    try {
+      const result = await generateChartForSection(proposalId, selectedSectionForChart, description, chartType);
+      updateSectionMermaidChart(selectedSectionForChart, result.chartCode);
+      setToast({ message: 'Chart generated successfully!', type: 'success' });
+    } catch (error: unknown) {
+      let errorMessage = 'Error generating chart. Please try again.';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (isErrorWithMessage(error)) {
+        errorMessage = (error as Error).message;
+      }
+      setToast({ message: errorMessage, type: 'error' });
+    } finally {
+      setLoading(false);
+      setChartWizardOpen(false);
+    }
+  };
+
+  const handleFixChart = async (mermaidCode: string) => {
+    if (!selectedSectionForChart || !proposalId) return;
+    setLoading(true);
+    try {
+      const result = await fixChart(proposalId, selectedSectionForChart, mermaidCode);
+      updateSectionMermaidChart(selectedSectionForChart, result.chartCode);
+      setToast({ message: 'Chart fixed successfully!', type: 'success' });
+    } catch (error: unknown) {
+      let errorMessage = 'Error fixing chart. Please try again.';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (isErrorWithMessage(error)) {
+        errorMessage = (error as Error).message;
+      }
+      setToast({ message: errorMessage, type: 'error' });
+    } finally {
+      setLoading(false);
+      setChartWizardOpen(false);
     }
   };
 
@@ -105,8 +225,11 @@ export default function ProposalEditorPage() {
     setChartWizardOpen(true);
   };
 
+  const SelectedTemplateComponent = templates[selectedTemplate];
+
   return (
     <div className="min-h-screen bg-gray-50 p-8">
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <div className="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-lg">
         <h1 className="text-4xl font-extrabold text-gray-900 mb-10 text-center">Proposal Editor</h1>
         
@@ -237,15 +360,33 @@ export default function ProposalEditorPage() {
           >
             {loading ? 'Generating...' : '✨ Generate Proposal'}
           </button>
-          <button
-            onClick={() => proposalId && router.push(`/proposal/${proposalId}/preview`)}
-            disabled={!proposalId || loading}
-            className="bg-green-600 text-white px-8 py-3 rounded-md text-lg font-semibold hover:bg-green-700 transition-colors shadow-md disabled:bg-gray-400"
-          >
-            Go to Preview
-          </button>
+
         </div>
         {errors.form && <p className="text-red-500 text-center mt-4">{errors.form}</p>}
+
+        {/* --- Template and Theme Selection --- */}
+        {proposalId && (
+          <div className="mt-10 border-t pt-6">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <label htmlFor="template-select" className="block text-sm font-medium text-gray-700">Select Template</label>
+                <select
+                  id="template-select"
+                  value={selectedTemplate}
+                  onChange={(e) => setSelectedTemplate(e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
+                >
+                  <option value="ClassicTemplate">Classic</option>
+                  <option value="ModernTemplate">Modern</option>
+                  <option value="ElegantCenteredTemplate">Elegant</option>
+                </select>
+              </div>
+                          </div>
+            <div className="mt-4 border rounded-lg overflow-hidden">
+              <SelectedTemplateComponent proposal={{...useProposalStore.getState()}} customCss={useProposalStore.getState().custom_css} />
+            </div>
+          </div>
+        )}
 
         {/* --- Full Editing Control Remains --- */}
         {proposalId && (
@@ -273,8 +414,11 @@ export default function ProposalEditorPage() {
         <ChartWizardModal
           open={isChartWizardOpen}
           onClose={() => setChartWizardOpen(false)}
-          sectionId={selectedSectionForChart}
-          proposalId={proposalId}
+          onGenerate={handleGenerateChart}
+          onFix={handleFixChart}
+          loading={loading}
+          suggestedChartType={sections.find(s => s.id === selectedSectionForChart)?.suggested_chart_type}
+          currentMermaidCode={sections.find(s => s.id === selectedSectionForChart)?.mermaid_chart}
         />
       </div>
     </div>
