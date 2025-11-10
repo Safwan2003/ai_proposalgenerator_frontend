@@ -243,13 +243,13 @@ const ElegantCenteredTemplate = ({ proposal, designTokens }) => {
         )}
         {/* Sections */}
         <main style={{ padding: `0 ${tokens.spacing.containerPadding}` }}>
-          {proposal.sections?.sort((a, b) => a.order - b.order).map((section) => (
+          {proposal.sections?.sort((a, b) => b.order - a.order).map((section) => (
             <section key={section.id} className="elegant-section">
               <h2>{section.title}</h2>
               <div className="elegant-content">
-                {(section.image_urls || []).map((url, index) => (
+                {(section.images || []).map((image, index) => (
                   <div key={index} className="elegant-image">
-                    <img src={url} alt="Section visual" />
+                    <img src={image.url} alt={image.alt || "Section visual"} />
                   </div>
                 ))}
                 <div dangerouslySetInnerHTML={{ __html: section.contentHtml }} />

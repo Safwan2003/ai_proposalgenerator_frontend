@@ -2,7 +2,7 @@
 
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import Table from '@tiptap/extension-table';
+import { Table } from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
 import TableHeader from '@tiptap/extension-table-header';
 import TableCell from '@tiptap/extension-table-cell';
@@ -10,7 +10,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useProposalStore } from '@/store/proposalStore';
 import { deleteSection as deleteSectionApi, removeImage, updateSectionApi, updateChart, generateChartFromContent } from '@/lib/api';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import SectionImages from './SectionImages';
 import TableMenuBar from './TableMenuBar';
 import { suggestChartType } from '@/lib/api';
@@ -18,6 +18,10 @@ import { debounce } from 'lodash';
 
 import dynamic from 'next/dynamic';
 const MermaidChart = dynamic(() => import('../MermaidChart'), { ssr: false });
+import InteractiveMermaid from '../InteractiveMermaid';
+import ChartDisplayModal from '../ui/ChartDisplayModal';
+
+import { FaPlus, FaTrash, FaImage, FaEdit, FaSave, FaMagic } from 'react-icons/fa';
 
 const getChartType = (mermaidCode: string): string => {
   if (!mermaidCode) return '';
@@ -39,20 +43,29 @@ interface ClientSideSectionCardProps {
   proposalId: number;
   openAiDialog: (sectionId: number) => void;
   openImagePicker: (sectionId: number) => void;
-  openVersionHistoryModal: (sectionId: number) => void;
   openChartWizardForSection: (sectionId: number) => void;
+  handleRemoveTechLogo: (sectionId: number, logoUrl: string) => void;
 }
 
-export default function ClientSideSectionCard({ section, proposalId, openAiDialog, openImagePicker, openVersionHistoryModal, openChartWizardForSection }: ClientSideSectionCardProps) {
-  console.log("SectionCard received section:", section);
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: section.id });
-  const { updateSectionContent, deleteSection, removeImageFromSection, addImageToSection, updateSectionMermaidChart, updateSectionImagePlacement } = useProposalStore();
+export default function ClientSideSectionCard({ section: initialSection, proposalId, openAiDialog, openImagePicker, openChartWizardForSection, handleRemoveTechLogo }: ClientSideSectionCardProps) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: initialSection.id });
+  const { updateSectionContent, deleteSection, removeImageFromSection, addImageToSection, updateSectionMermaidChart, updateSectionImagePlacement, updateSection, sections } = useProposalStore();
+
+  const section = sections.find(s => s.id === initialSection.id) || initialSection; // Get the latest section from the store
 
   const [editableMermaidContent, setEditableMermaidContent] = useState(section.mermaid_chart || '');
   const [aiPrompt, setAiPrompt] = useState('');
   const [suggestedChart, setSuggestedChart] = useState<string | null>(null);
+  const [isChartModalOpen, setIsChartModalOpen] = useState(false);
 
-  const debouncedSuggestChart = useCallback(
+  const handleSaveMermaid = async (newChart: string) => {
+    updateSectionMermaidChart(section.id, newChart);
+    if (proposalId) {
+    await updateSectionApi(section.id, { mermaid_chart: newChart });
+    }
+  };
+
+  const debouncedSuggestChart = useRef(
     debounce(async (content) => {
       if (proposalId && section.id) {
         const suggestion = await suggestChartType(proposalId, section.id);
@@ -62,9 +75,8 @@ export default function ClientSideSectionCard({ section, proposalId, openAiDialo
           setSuggestedChart(null);
         }
       }
-    }, 1000), // 1 second debounce
-    [proposalId, section.id]
-  );
+    }, 1000) // 1 second debounce
+  ).current;
 
   const editor = useEditor({
     extensions: [StarterKit, Table, TableRow, TableHeader, TableCell],
@@ -83,7 +95,7 @@ export default function ClientSideSectionCard({ section, proposalId, openAiDialo
         updateSectionContent(section.id, newHtml);
         updateSectionMermaidChart(section.id, editableMermaidContent);
         if (proposalId) {
-          await updateSectionApi(proposalId, section.id, { contentHtml: newHtml, mermaid_chart: editableMermaidContent });
+          await updateSectionApi(section.id, { contentHtml: newHtml, mermaid_chart: editableMermaidContent });
         }
       }
     },
@@ -124,49 +136,37 @@ export default function ClientSideSectionCard({ section, proposalId, openAiDialo
       updateSectionMermaidChart(section.id, editableMermaidContent);
       if (proposalId) {
         console.log("Calling updateSectionApi...");
-        await updateSectionApi(proposalId, section.id, { contentHtml: newHtml, mermaid_chart: editableMermaidContent });
+  await updateSectionApi(section.id, { contentHtml: newHtml, mermaid_chart: editableMermaidContent });
         console.log("updateSectionApi called.");
       }
     }
     console.log("toggleEdit finished.");
   };
 
-  const handleDeleteImage = async (sectionId: number, imageUrl: string) => {
+  const handleDeleteImage = async (sectionId: number, imageId: number) => {
     // Optimistically remove the image from the UI
-    removeImageFromSection(sectionId, imageUrl);
+    removeImageFromSection(sectionId, imageId);
 
     try {
-      if (proposalId) {
-        await removeImage(proposalId, sectionId, imageUrl);
-      }
+      const updated = await removeImage(sectionId, imageId);
+      updateSection(updated);
     } catch (error) {
       console.error('Error deleting image:', error);
       // Revert the UI change if the API call fails
-      addImageToSection(sectionId, imageUrl);
+      const image = section.images.find(img => img.id === imageId);
+      if (image) {
+        addImageToSection(sectionId, image);
+      }
       alert('Error deleting image. Please try again.');
     }
   };
 
-  const handleSelectImage = async (imageUrl: string) => {
-    if (selectedSectionId && proposalId) {
-      // Optimistically update the UI
-      addImageToSection(selectedSectionId, imageUrl);
-
-      try {
-        await addImage(proposalId, selectedSectionId, imageUrl);
-      } catch (error) {
-        console.error('Error adding image:', error);
-        // Revert the UI change if the API call fails
-        removeImageFromSection(selectedSectionId, imageUrl);
-        alert('Error adding image. Please try again.');
-      }
-    }
-  };
+  // Image selection handled at parent level via ImagePickerModal
 
   const handleDeleteSection = async () => {
     if (!proposalId) return;
     deleteSection(section.id);
-    await deleteSectionApi(proposalId, section.id);
+  await deleteSectionApi(section.id);
   };
 
   const handleUpdateChart = async () => {
@@ -184,10 +184,10 @@ export default function ClientSideSectionCard({ section, proposalId, openAiDialo
   const handleRemoveDiagram = async () => {
     if (!proposalId) return;
     updateSectionMermaidChart(section.id, '');
-    await updateSectionApi(proposalId, section.id, { mermaid_chart: '' });
+  await updateSectionApi(section.id, { mermaid_chart: '' });
   };
 
-  const chartType = section.chartType || getChartType(section.mermaid_chart || '');
+  const chartType = (section as any).chartType || getChartType(section.mermaid_chart || '');
 
   const style = { transform: CSS.Transform.toString(transform), transition };
 
@@ -226,26 +226,39 @@ export default function ClientSideSectionCard({ section, proposalId, openAiDialo
       )}
 
       {(section.mermaid_chart) && (
-        <div className="mt-4 p-4 border rounded-lg relative">
-          <span className="absolute top-2 right-2 bg-gray-200 text-gray-800 text-xs font-semibold px-2 py-1 rounded-full">{chartType}</span>
-          <MermaidChart chart={section.mermaid_chart} />
+        <div className="mt-4">
+          <InteractiveMermaid initialChart={section.mermaid_chart} onSave={handleSaveMermaid} />
         </div>
       )}
 
-      <SectionImages section={section} handleDeleteImage={handleDeleteImage} />
+      <ChartDisplayModal
+        open={isChartModalOpen}
+        onClose={() => setIsChartModalOpen(false)}
+        chartCode={section.mermaid_chart || ''}
+        chartType={chartType}
+      />
+
+  {section.images && section.images.length > 0 && <SectionImages section={section} handleDeleteImage={handleDeleteImage} proposalId={proposalId} />}
 
       {section.title.toLowerCase().includes('technology stack') && (
         <div className="mt-4">
           <h4 className="text-lg font-semibold text-gray-700 mb-2">Technologies Used:</h4>
           <div className="flex flex-wrap gap-4 items-center">
-            {section.tech_logos_list && Array.isArray(section.tech_logos_list) && section.tech_logos_list.map((tech, index) => (
-              <div key={index} className="flex items-center space-x-2 p-2 border border-gray-200 rounded-md bg-white shadow-sm">
+            {section.tech_logos && Array.isArray(section.tech_logos) && section.tech_logos.map((tech, index) => (
+              <div key={index} className="relative flex items-center space-x-2 p-2 border border-gray-200 rounded-md bg-white shadow-sm">
                 {tech.logo_url ? (
                   <img src={tech.logo_url} alt={tech.name} className="h-8 w-8 object-contain" />
                 ) : (
                   <div className="h-8 w-8 flex items-center justify-center bg-gray-200 text-gray-500 rounded-md text-xs font-semibold">{tech.name.charAt(0)}</div>
                 )}
                 <span className="text-sm font-medium text-gray-800">{tech.name}</span>
+                <button
+                  onClick={() => handleRemoveTechLogo(section.id, tech.logo_url)}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full h-5 w-5 flex items-center justify-center text-xs font-bold leading-none"
+                  aria-label="Remove tech logo"
+                >
+                  &times;
+                </button>
               </div>
             ))}
             <button onClick={() => openImagePicker(section.id)} className="px-4 py-2 text-sm bg-gray-100 rounded-md">Add Tech Logo</button>
@@ -253,7 +266,7 @@ export default function ClientSideSectionCard({ section, proposalId, openAiDialo
         </div>
       )}
 
-      {section.image_urls && section.image_urls.length > 0 && (
+      {section.images && section.images.length > 0 && (
         <div className="mt-4">
           <label className="block text-sm font-medium">Image Placement</label>
           <select
@@ -268,14 +281,13 @@ export default function ClientSideSectionCard({ section, proposalId, openAiDialo
       )}
 
       <div className="mt-5 flex flex-wrap justify-end gap-3">
-        {!section.mermaid_chart && <button onClick={handleGenerateDiagram} className="px-4 py-2 text-sm bg-teal-500 text-white rounded-md">Add Diagram</button>}
-        {section.mermaid_chart && <button onClick={handleRemoveDiagram} className="px-4 py-2 text-sm bg-red-500 text-white rounded-md">Remove Diagram</button>}
-        <button onClick={() => openImagePicker(section.id)} className="px-4 py-2 text-sm bg-gray-100 rounded-md">Add Image</button>
-        <button onClick={toggleEdit} className="px-4 py-2 text-sm bg-blue-500 text-white rounded-md">{editor?.isEditable ? 'Save' : 'Edit'}</button>
-        <button onClick={() => openAiDialog(section.id)} className="px-4 py-2 text-sm bg-indigo-500 text-white rounded-md">AI Enhance</button>
-        <button onClick={() => openVersionHistoryModal(section.id)} className="px-4 py-2 text-sm bg-purple-500 text-white rounded-md">History</button>
-        <button onClick={handleDeleteSection} className="px-4 py-2 text-sm bg-red-500 text-white rounded-md">Delete</button>
-        {suggestedChart && <button onClick={() => openChartWizardForSection(section.id, suggestedChart)} className="px-4 py-2 text-sm bg-yellow-500 text-white rounded-md">Visualize as {suggestedChart}</button>}
+        {!section.mermaid_chart && <button onClick={handleGenerateDiagram} className="p-2 text-sm bg-teal-500 text-white rounded-md"><FaPlus /></button>}
+        {section.mermaid_chart && <button onClick={handleRemoveDiagram} className="p-2 text-sm bg-red-500 text-white rounded-md"><FaTrash /></button>}
+        <button onClick={() => openImagePicker(section.id)} className="p-2 text-sm bg-gray-100 rounded-md"><FaImage /></button>
+        <button onClick={toggleEdit} className="p-2 text-sm bg-blue-500 text-white rounded-md">{editor?.isEditable ? <FaSave /> : <FaEdit />}</button>
+        <button onClick={() => openAiDialog(section.id)} className="p-2 text-sm bg-indigo-500 text-white rounded-md"><FaMagic /></button>
+        <button onClick={handleDeleteSection} className="p-2 text-sm bg-red-500 text-white rounded-md"><FaTrash /></button>
+  {suggestedChart && <button onClick={() => openChartWizardForSection(section.id)} className="px-4 py-2 text-sm bg-yellow-500 text-white rounded-md">Visualize as {suggestedChart}</button>}
       </div>
     </div>
   );

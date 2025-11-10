@@ -92,3 +92,19 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.mermaid-chart-container-template {
+  width: 100%;
+  max-width: 1000px; /* Desired max width for Gantt charts */
+  overflow-x: auto; /* Enable horizontal scrolling if content overflows */
+  margin: 1.5rem auto; /* Center the chart */
+  padding: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background-color: #ffffff;
+}
+
+.mermaid-chart-container-template svg {
+  max-width: none !important; /* Override Mermaid.js default max-width */
+  height: auto !important;
+}

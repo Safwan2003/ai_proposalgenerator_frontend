@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { searchImages, getImageProviders, searchTechLogos } from '@/lib/api';
+import ImageLibrary from './ImageLibrary';
 
 export default function ImagePickerModal({ open, onClose, onSelectImage }) {
   const [query, setQuery] = useState('');
@@ -9,7 +10,7 @@ export default function ImagePickerModal({ open, onClose, onSelectImage }) {
   const [images, setImages] = useState([]);
   const [techLogos, setTechLogos] = useState([]);
   const [providers, setProviders] = useState([]);
-  const [selectedProvider, setSelectedProvider] = useState('pixabay');
+  const [selectedProvider, setSelectedProvider] = useState('both');
   const [activeTab, setActiveTab] = useState('images');
 
   useEffect(() => {
@@ -25,12 +26,17 @@ export default function ImagePickerModal({ open, onClose, onSelectImage }) {
   if (!open) return null;
 
   const handleSearch = async () => {
+    if (!query) {
+      alert('Please enter a search query.');
+      return;
+    }
     const results = await searchImages(query, selectedProvider);
     setImages(results);
   };
 
   const handleTechLogoSearch = async () => {
     const results = await searchTechLogos(query);
+    console.log("Tech logo search results:", results);
     setTechLogos(results);
   };
 
@@ -49,6 +55,9 @@ export default function ImagePickerModal({ open, onClose, onSelectImage }) {
           </button>
           <button onClick={() => setActiveTab('tech_logos')} className={`px-4 py-2 text-sm font-medium ${activeTab === 'tech_logos' ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500'}`}>
             Tech Logos
+          </button>
+          <button onClick={() => setActiveTab('my_library')} className={`px-4 py-2 text-sm font-medium ${activeTab === 'my_library' ? 'border-b-2 border-indigo-500 text-indigo-600' : 'text-gray-500'}`}>
+            My Library
           </button>
         </div>
         <div className="flex flex-col gap-3 mb-6">
@@ -103,6 +112,9 @@ export default function ImagePickerModal({ open, onClose, onSelectImage }) {
               </div>
             </div>
           ))}
+          {activeTab === 'my_library' && (
+            <ImageLibrary onSelectImage={(image) => handleSelectImage(image, 'image')} />
+          )}
         </div>
         <div className="mt-8 flex justify-end">
           <button onClick={onClose} className="px-5 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors font-medium">

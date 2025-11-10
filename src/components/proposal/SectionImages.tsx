@@ -1,32 +1,28 @@
 'use client';
 
-import { useProposalStore } from '@/store/proposalStore';
-import { updateImagePlacement } from '@/lib/api';
+interface ImageItem {
+  id: number;
+  url: string;
+  alt?: string;
+  placement?: string | null;
+}
 
-export default function SectionImages({ section, handleDeleteImage, proposalId }) {
-  console.log("SectionImages - image_urls:", section.image_urls);
-  const { updateSectionImagePlacement } = useProposalStore();
-
-  const handlePlacementChange = async (sectionId, placement) => {
-    // Optimistically update the UI
-    updateSectionImagePlacement(sectionId, placement);
-
-    try {
-      if (proposalId) {
-        await updateImagePlacement(proposalId, sectionId, placement);
-      }
-    } catch (error) {
-      console.error('Error updating image placement:', error);
-      // Revert the UI change if the API call fails
-      // For simplicity, we'll just alert the user. A more robust solution would be to refetch the section data.
-      alert('Error updating image placement. Please try again.');
-    }
+interface SectionImagesProps {
+  section: {
+    id: number;
+    image_placement?: string | null;
+    images?: ImageItem[];
   };
+  handleDeleteImage: (sectionId: number, imageId: number) => void;
+  proposalId?: number | null;
+}
 
-  const getPlacementClass = (placement) => {
+export default function SectionImages({ section, handleDeleteImage, proposalId: _proposalId }: SectionImagesProps) {
+  const getPlacementClass = (placement?: string | null) => {
     switch (placement) {
-      case 'full-width':
-        return 'col-span-full';
+      case 'full-width-top':
+      case 'full-width-bottom':
+        return 'col-span-2';
       case 'inline-left':
         return 'col-span-1';
       case 'inline-right':
@@ -36,21 +32,29 @@ export default function SectionImages({ section, handleDeleteImage, proposalId }
     }
   };
 
+  const handleDelete = (sectionId: number, imageId: number) => {
+    if (window.confirm('Are you sure you want to delete this image?')) {
+      handleDeleteImage(sectionId, imageId);
+    }
+  };
+
+  if (!section.images || section.images.length === 0) return null;
+
   return (
     <div className={`mt-4 grid grid-cols-2 gap-3`}>
-      {(section.image_urls || []).map((image, index) => (
-        <div key={index} className={`relative w-full rounded-md shadow-sm group ${getPlacementClass(section.image_placement)}`}>
-          <img 
-            src={image} 
-            alt={`section image ${index + 1}`} 
-            className="w-full h-auto object-contain" 
-            onError={(e) => console.error('Image failed to load:', image, e)}
+      {section.images.map((image) => (
+        <div key={image.id} className={`relative w-full rounded-md shadow-sm group ${getPlacementClass(section.image_placement)}`}>
+          <img
+            src={image.url}
+            alt={image.alt || 'section image'}
+            className="w-full h-auto object-contain"
+            onError={(e) => console.error('Image failed to load:', image.url, e)}
           />
           <button
-            onClick={() => handleDeleteImage(section.id, image)}
+            onClick={() => handleDelete(section.id, image.id)}
             className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
           >
-            X
+            ×
           </button>
         </div>
       ))}

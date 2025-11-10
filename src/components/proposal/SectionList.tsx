@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { useProposalStore } from '@/store/proposalStore';
 import { 
   DndContext, 
@@ -24,19 +25,20 @@ interface SectionListProps {
   proposalId: number;
   openAiDialog: (sectionId: number) => void;
   openImagePicker: (sectionId: number) => void;
-  openVersionHistoryModal: (sectionId: number) => void;
   openChartWizardForSection: (sectionId: number) => void;
+  handleRemoveTechLogo: (sectionId: number, logoUrl: string) => void;
+  handleAddSectionAtIndex: (index: number) => void;
 }
-
-export default function SectionList({ 
-  proposalId, 
-  openAiDialog, 
-  openImagePicker, 
-  openVersionHistoryModal, 
-  openChartWizardForSection 
+  
+export default function SectionList({
+  proposalId,
+  openAiDialog,
+  openImagePicker,
+  openChartWizardForSection,
+  handleRemoveTechLogo,
+  handleAddSectionAtIndex,
 }: SectionListProps) {
-  const { sections, reorderSections } = useProposalStore();
-
+    const { sections, reorderSections } = useProposalStore();
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -69,7 +71,11 @@ export default function SectionList({
           await reorderSectionsApi(proposalId, reorderRequests);
         }
       } catch (error) {
-        console.error('Error reordering sections:', error);
+        if (axios.isAxiosError(error)) {
+          console.error('Error reordering sections:', error.response?.status, error.response?.data);
+        } else {
+          console.error('Error reordering sections:', error);
+        }
         // Optionally revert the UI state if the API call fails
         reorderSections(sections);
       }
@@ -100,17 +106,51 @@ export default function SectionList({
           strategy={verticalListSortingStrategy}
         >
           <div className="space-y-4">
-            {sections.map((section) => (
-              <SectionCard
-                key={section.id}
-                section={section}
-                proposalId={proposalId}
-                openAiDialog={openAiDialog}
-                openImagePicker={openImagePicker}
-                openVersionHistoryModal={openVersionHistoryModal}
-                openChartWizardForSection={openChartWizardForSection}
-              />
+            {sections.filter(section => section && section.id).sort((a, b) => b.order - a.order).map((section, index) => (
+              <React.Fragment key={section.id}>
+                <SectionCard
+                  section={section}
+                  proposalId={proposalId}
+                  openAiDialog={openAiDialog}
+                  openImagePicker={openImagePicker}
+                  openChartWizardForSection={openChartWizardForSection}
+                  handleRemoveTechLogo={handleRemoveTechLogo}
+                />
+                <div 
+                  className="relative h-8 flex items-center justify-center group"
+                  onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+                  onMouseLeave={(e) => (e.currentTarget.style.opacity = '0')}
+                  style={{ opacity: 0, transition: 'opacity 0.3s ease-in-out' }}
+                >
+                  <button
+                    onClick={() => handleAddSectionAtIndex(index + 1)}
+                    className="absolute bg-blue-500 text-white rounded-full p-2 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                    title="Add section here"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                  </button>
+                </div>
+                </React.Fragment>
             ))}
+            {/* Add section button for the very end of the list */}
+            <div 
+              className="relative h-8 flex items-center justify-center group"
+              onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+              onMouseLeave={(e) => (e.currentTarget.style.opacity = '0')}
+              style={{ opacity: 0, transition: 'opacity 0.3s ease-in-out' }}
+            >
+              <button
+                onClick={() => handleAddSectionAtIndex(sections.length)}
+                className="absolute bg-blue-500 text-white rounded-full p-2 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                title="Add section at the end"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+              </button>
+            </div>
           </div>
         </SortableContext>
       </DndContext>

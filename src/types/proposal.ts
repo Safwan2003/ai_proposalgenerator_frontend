@@ -15,8 +15,8 @@ export interface Section {
   layout: string | null;
   // Note: The backend sends `image_urls`, but the frontend components might use an `images` array of objects.
   // We will stick to the backend model for now.
-  image_urls: string[]; 
-  tech_logos_list: { name: string; logo_url: string }[];
+  images: { id: number; url: string; alt: string; placement: string }[]; 
+  tech_logos: { name: string; logo_url: string }[];
 }
 
 export interface Proposal {

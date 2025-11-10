@@ -25,7 +25,7 @@ const ModernTemplate = ({ proposal }) => {
         {/* Main Content */}
         <main className="p-8 md:p-12">
           {proposal.sections
-            ?.sort((a, b) => a.order - b.order)
+            ?.sort((a, b) => b.order - a.order)
             .map((section) => {
               // Skip rendering the tech stack section in the main loop
               if (section.title.toLowerCase().includes('technology stack')) {
@@ -37,11 +37,15 @@ const ModernTemplate = ({ proposal }) => {
                     {section.title}
                   </h2>
                   <div className="prose prose-lg max-w-none text-gray-700 leading-relaxed">
-                    {section.image_urls?.map((url, index) => (
-                      <img key={index} src={url} alt={`${section.title} visual ${index + 1}`} className="rounded-lg shadow-md my-6" />
+                    {Array.isArray(section.images) && section.images.map((image, index) => (
+                      <img key={index} src={image.url} alt={image.alt || `${section.title} visual ${index + 1}`} className="rounded-lg shadow-md my-6" />
                     ))}
                     <div dangerouslySetInnerHTML={{ __html: section.contentHtml }} />
-                    {section.mermaid_chart && <MermaidChart chart={section.mermaid_chart} />}
+                    {section.mermaid_chart && (
+                      <div className="mermaid-chart-container-template">
+                        <MermaidChart chart={section.mermaid_chart} />
+                      </div>
+                    )}
                   </div>
                 </section>
               );

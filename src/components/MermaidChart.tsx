@@ -5,6 +5,19 @@ import mermaid from 'mermaid';
 
 import { useProposalStore } from '@/store/proposalStore';
 
+const getChartType = (mermaidCode: string): string => {
+  if (!mermaidCode) return '';
+  const code = mermaidCode.toLowerCase().trim();
+  if (code.startsWith('graph') || code.startsWith('flowchart')) return 'Flowchart';
+  if (code.startsWith('gantt')) return 'Gantt Chart';
+  if (code.startsWith('pie')) return 'Pie Chart';
+  if (code.startsWith('sequence')) return 'Sequence Diagram';
+  if (code.startsWith('mindmap')) return 'Mind Map';
+  if (code.startsWith('journey')) return 'User Journey';
+  if (code.startsWith('c4')) return 'C4 Diagram';
+  return 'Diagram';
+};
+
 interface MermaidChartProps {
   chart: string;
   onEdit?: () => void;
@@ -14,14 +27,21 @@ const MermaidChart: React.FC<MermaidChartProps> = ({ chart, onEdit }) => {
   const [svg, setSvg] = useState('');
   const { chartTheme } = useProposalStore();
 
-  useEffect(() => {
-    // Initialize Mermaid on the client side
-    mermaid.initialize({
-      startOnLoad: false, // We will render manually
-      theme: chartTheme,
-      securityLevel: 'loose',
-    });
-
+      useEffect(() => {
+        const currentChartType = getChartType(chart);
+  
+        mermaid.initialize({
+          startOnLoad: false, // We will render manually
+          theme: chartTheme,
+          securityLevel: 'loose',
+          gantt: {
+            fontSize: 16, // Larger font size for tasks and labels
+            leftPadding: 75, // More padding on the left for task names
+            // You can add more gantt specific configurations here
+          },
+          // Set width specifically for Gantt charts
+          ...(currentChartType === 'Gantt Chart' && { width: 1000 }),
+        });
     if (chart) {
       try {
         // Unique ID for each render to avoid conflicts
@@ -51,7 +71,7 @@ const MermaidChart: React.FC<MermaidChartProps> = ({ chart, onEdit }) => {
   }
 
   return (
-    <div>
+    <div className="mermaid-chart-container w-full h-full">
       <div dangerouslySetInnerHTML={{ __html: svg }} />
       {onEdit && (
         <button

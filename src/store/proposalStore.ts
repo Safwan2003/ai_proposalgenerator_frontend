@@ -3,6 +3,9 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { Section } from '@/types/proposal';
 
+// Note: API calls for removing images are performed by UI components;
+// the store's removeImageFromSection only updates local state (optimistic update).
+
 // Define the state shape
 interface ProposalState {
   clientName: string;
@@ -13,7 +16,7 @@ interface ProposalState {
   startDate: string;
   endDate: string;
   companyInfo: { name: string; logoUrl: string; contact: string };
-  sections: { id: number; title: string; contentHtml: string; image_urls: string[]; order: number; image_placement: string | null; mermaid_chart: string | null; layout: string | null }[];
+  sections: { id: number; title: string; contentHtml: string; images: { id: number; url: string; alt: string; placement: string }[]; order: number; image_placement: string | null; mermaid_chart: string | null; layout: string | null; tech_logos: { name: string; logo_url: string }[] }[];
   tech_stack: { name: string; logo_url: string }[];
   chartTheme: 'default' | 'neutral' | 'dark' | 'forest';
 
@@ -24,13 +27,16 @@ interface ProposalState {
   updateSection: (section: Section) => void;
   updateSectionContent: (id: number, content: string) => void;
   reorderSections: (sections: Section[]) => void;
-  addImageToSection: (sectionId: number, imageUrl: string) => void;
+  addImageToSection: (sectionId: number, image: { id: number; url: string; alt: string; placement: string }) => void;
   deleteSection: (sectionId: number) => void;
-  removeImageFromSection: (sectionId: number, imageUrl: string) => void;
+  removeImageFromSection: (sectionId: number, imageId: number) => void;
   updateSectionImagePlacement: (sectionId: number, placement: string) => void;
   updateSectionMermaidChart: (sectionId: number, chart: string) => void;
   updateSectionLayout: (sectionId: number, layout: string) => void;
   addTechLogoToSection: (sectionId: number, techLogo: { name: string; logo_url: string }) => void;
+  addSection: (section: Section) => void;
+  removeTechLogoFromSection: (sectionId: number, logoUrl: string) => void;
+  setTechStack: (tech_stack: { name: string; logo_url: string }[]) => void;
 }
 
 export const useProposalStore = create<ProposalState>()(
@@ -50,8 +56,14 @@ export const useProposalStore = create<ProposalState>()(
 
       setField: (field, value) => set({ [field]: value }),
       setChartTheme: (theme) => set({ chartTheme: theme }),
-      setSections: (sections) => set({ sections }),
+      setSections: (sections) => {
+        console.log("Setting sections in proposal store:", sections);
+        set((state) => ({
+          sections: Array.isArray(sections) ? sections.map(s => ({ ...s })) : []
+        }));
+      },
       setTechStack: (tech_stack) => set({ tech_stack }),
+      addSection: (section) => set((state) => ({ sections: [...state.sections, section] })),
       updateSection: (section) =>
         set((state) => ({
           sections: state.sections.map((s) => (s.id === section.id ? section : s)),
@@ -60,23 +72,30 @@ export const useProposalStore = create<ProposalState>()(
         set((state) => ({
           sections: state.sections.map((s) => (s.id === id ? { ...s, contentHtml: content } : s)),
         })),
-      reorderSections: (sections) => set({ sections }),
-      addImageToSection: (sectionId, imageUrl) =>
+      reorderSections: (newlyOrderedSections) => set((state) => ({
+        sections: Array.isArray(newlyOrderedSections) 
+          ? newlyOrderedSections.map((s, index) => ({ ...s, order: index + 1 })) 
+          : state.sections
+      })),
+      addImageToSection: (sectionId, image) =>
         set((state) => ({
           sections: state.sections.map((s) =>
-            s.id === sectionId ? { ...s, image_urls: [...s.image_urls, imageUrl] } : s
-          ),
+          s.id === sectionId
+            ? { ...s, images: [...(Array.isArray(s.images) ? s.images : []), image] }
+            : s          ),
         })),
       deleteSection: (sectionId) =>
         set((state) => ({
           sections: state.sections.filter((s) => s.id !== sectionId),
         })),
-      removeImageFromSection: (sectionId, imageUrl) =>
+      removeImageFromSection: (sectionId, imageId) => {
+        // Only update local state; the caller (component) will perform the API request
         set((state) => ({
           sections: state.sections.map((s) =>
-            s.id === sectionId ? { ...s, image_urls: s.image_urls.filter((img) => img !== imageUrl) } : s
+            s.id === sectionId ? { ...s, images: s.images.filter((img) => img.id !== imageId) } : s
           ),
-        })),
+        }));
+      },
       updateSectionImagePlacement: (sectionId, placement) =>
         set((state) => ({
           sections: state.sections.map((s) =>
@@ -105,8 +124,13 @@ export const useProposalStore = create<ProposalState>()(
             return s;
           }),
         })),
+      removeTechLogoFromSection: (sectionId, logoUrl) =>
+        set((state) => ({
+          sections: state.sections.map((s) =>
+            s.id === sectionId ? { ...s, tech_logos: (s.tech_logos || []).filter((logo) => logo.logo_url !== logoUrl) } : s
+          ),
+        })),
     }),
     { name: 'ProposalStore' }
   )
 );
-
