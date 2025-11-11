@@ -3,6 +3,11 @@ export interface DesignSuggestion {
   css: string;
 }
 
+// Minimal placeholder for design tokens to satisfy type checks
+export interface DesignTokens {
+  [key: string]: any;
+}
+
 export interface Section {
   id: number;
   title: string;
@@ -32,8 +37,7 @@ export interface Proposal {
   companyLogoUrl: string;
   companyContact: string;
   sections: Section[];
-  custom_css: string | null;
-  designTokens?: DesignTokens; // Add designTokens to Proposal interface
+  designTokens?: DesignTokens; // Optional frontend-only tokens
   hero?: {
     title?: string;
     subtitle?: string;

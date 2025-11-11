@@ -1,8 +1,15 @@
 import React from 'react';
 
-const RedlineTemplate = ({ proposal: rawProposal, customCss }: { proposal: any; customCss?: string }) => {
+const RedlineTemplate = ({ proposal: rawProposal }: { proposal: any }) => {
   const proposal = rawProposal || {};
   const { clientName, totalAmount, startDate, endDate, companyInfo, sections, tech_stack } = proposal;
+
+  const exportAsPDF = () => {
+    // Simple fallback: invoke browser print for now
+    if (typeof window !== 'undefined') {
+      window.print();
+    }
+  };
 
   return (
     <div className="flex flex-col items-center">
@@ -85,7 +92,6 @@ const RedlineTemplate = ({ proposal: rawProposal, customCss }: { proposal: any; 
         Export as PDF
       </button>
 
-      {customCss && <style>{customCss}</style>}
     </div>
   );
 };
